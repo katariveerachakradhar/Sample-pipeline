@@ -1,0 +1,37 @@
+name: Build and Deploy to AKS
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Login to ACR
+      run: az acr login -n ${{ secrets.ACR_NAME }}
+
+    - name: Build and Push Docker Image
+      run: |
+        docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/nodeapp:latest .
+        docker push ${{ secrets.ACR_NAME }}.azurecr.io/nodeapp:latest
+
+    - name: Set AKS Context
+      uses: azure/aks-set-context@v3
+      with:
+        resource-group: ${{ secrets.RESOURCE_GROUP }}
+        cluster-name: ${{ secrets.AKS_NAME }}
+
+    - name: Deploy to AKS
+      run: |
+        kubectl apply -f deployment.yaml
+        kubectl apply -f service.yaml
